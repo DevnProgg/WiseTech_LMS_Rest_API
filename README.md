@@ -14,6 +14,13 @@ The project follows the standard Go project layout:
   - `server/`: HTTP server and routing.
   - `utils/`: Utility functions, including password hashing and validation.
   - `auth/`: Authentication utilities, including JWT token generation and validation.
+    - **JWT Token Management**:
+      - `GenerateAccessToken(accountID, lenderID int64, secretKey string) (string, error)`: Creates a new access token with a 15-minute expiration.
+      - `GenerateRefreshToken(accountID, lenderID int64, secretKey string) (string, error)`: Creates a new refresh token with a 7-day expiration.
+      - `GenerateTokenPair(accountID, lenderID int64, secretKey string) (*TokenPair, error)`: Generates both an access and a refresh token.
+      - `ValidateToken(tokenString, secretKey string) (*Claims, error)`: Parses and validates a JWT token, returning claims if valid.
+      - `ExtractAccountID(tokenString, secretKey string) (int64, error)`: Extracts `AccountID` from a valid token.
+      - `ExtractLenderID(tokenString, secretKey string) (int64, error)`: Extracts `LenderID` from a valid token.
 - `pkg/`: (currently unused) Publicly-usable library code.
 
 ## Prerequisites

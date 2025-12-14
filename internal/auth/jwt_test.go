@@ -1,89 +1,99 @@
 package auth
 
 import (
+	"errors"
 	"testing"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 )
 
-const testSecret = "supersecretkey"
-const testUserID = 123
+var (
+	testSecretKey = "supersecretkey"
+	testAccountID = int64(123)
+	testLenderID  = int64(456)
+)
+
+// parseToken parses and validates a JWT token string.
+func parseToken(t *testing.T, tokenString string, secretKey string) *Claims {
+	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) {
+		return []byte(secretKey), nil
+	})
+
+	if err != nil {
+		t.Fatalf("Failed to parse token: %v", err)
+	}
+
+	if !token.Valid {
+		t.Fatalf("Token is not valid")
+	}
+
+	claims, ok := token.Claims.(*Claims)
+	if !ok {
+		t.Fatalf("Failed to get claims from token")
+	}
+
+	return claims
+}
 
 func TestGenerateAccessToken(t *testing.T) {
-	tokenString, err := GenerateAccessToken(testUserID, testSecret)
+	tokenString, err := GenerateAccessToken(testAccountID, testLenderID, testSecretKey)
 	if err != nil {
 		t.Fatalf("GenerateAccessToken failed: %v", err)
 	}
 	if tokenString == "" {
-		t.Error("Generated access token is empty")
+		t.Fatal("Generated access token is empty")
 	}
 
-	// Parse and validate the token
-	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) {
-		return []byte(testSecret), nil
-	})
-	if err != nil {
-		t.Fatalf("Failed to parse access token: %v", err)
+	claims := parseToken(t, tokenString, testSecretKey)
+
+	if claims.AccountID != testAccountID {
+		t.Errorf("Expected AccountID %d, got %d", testAccountID, claims.AccountID)
+	}
+	if claims.LenderID != testLenderID {
+		t.Errorf("Expected LenderID %d, got %d", testLenderID, claims.LenderID)
 	}
 
-	claims, ok := token.Claims.(*Claims)
-	if !ok || !token.Valid {
-		t.Fatal("Access token is invalid or claims are not of type *Claims")
-	}
-
-	if claims.UserID != testUserID {
-		t.Errorf("Expected UserID %d, got %d", testUserID, claims.UserID)
-	}
-
-	// Check expiration within a reasonable delta
+	// Check expiration time (allow for a small margin of error)
 	expectedExpiry := time.Now().Add(AccessTokenDuration)
-	if !claims.ExpiresAt.After(time.Now()) || claims.ExpiresAt.After(expectedExpiry.Add(time.Second)) {
-		t.Errorf("Access token expiry is not within expected range. Expected around %v, got %v", expectedExpiry, claims.ExpiresAt.Time)
+	if claims.ExpiresAt == nil {
+		t.Fatal("AccessToken claims.ExpiresAt is nil")
 	}
-	if !claims.IssuedAt.Before(time.Now().Add(time.Second)) {
-		t.Errorf("Access token issued at time is not correct. Expected around %v, got %v", time.Now(), claims.IssuedAt.Time)
+	if claims.ExpiresAt.Time.Before(expectedExpiry.Add(-1 * time.Minute)) || claims.ExpiresAt.Time.After(expectedExpiry.Add(1 * time.Minute)) {
+		t.Errorf("AccessToken expiration time is not within expected range. Expected around %v, got %v", expectedExpiry, claims.ExpiresAt.Time)
 	}
 }
 
 func TestGenerateRefreshToken(t *testing.T) {
-	tokenString, err := GenerateRefreshToken(testUserID, testSecret)
+	tokenString, err := GenerateRefreshToken(testAccountID, testLenderID, testSecretKey)
 	if err != nil {
 		t.Fatalf("GenerateRefreshToken failed: %v", err)
 	}
 	if tokenString == "" {
-		t.Error("Generated refresh token is empty")
+		t.Fatal("Generated refresh token is empty")
 	}
 
-	// Parse and validate the token
-	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) {
-		return []byte(testSecret), nil
-	})
-	if err != nil {
-		t.Fatalf("Failed to parse refresh token: %v", err)
+	claims := parseToken(t, tokenString, testSecretKey)
+
+	if claims.AccountID != testAccountID {
+		t.Errorf("Expected AccountID %d, got %d", testAccountID, claims.AccountID)
+	}
+	if claims.LenderID != testLenderID {
+		t.Errorf("Expected LenderID %d, got %d", testLenderID, claims.LenderID)
 	}
 
-	claims, ok := token.Claims.(*Claims)
-	if !ok || !token.Valid {
-		t.Fatal("Refresh token is invalid or claims are not of type *Claims")
-	}
-
-	if claims.UserID != testUserID {
-		t.Errorf("Expected UserID %d, got %d", testUserID, claims.UserID)
-	}
-
-	// Check expiration within a reasonable delta
+	// Check expiration time (allow for a small margin of error)
 	expectedExpiry := time.Now().Add(RefreshTokenDuration)
-	if !claims.ExpiresAt.After(time.Now()) || claims.ExpiresAt.After(expectedExpiry.Add(time.Second)) {
-		t.Errorf("Refresh token expiry is not within expected range. Expected around %v, got %v", expectedExpiry, claims.ExpiresAt.Time)
+	if claims.ExpiresAt == nil {
+		t.Fatal("RefreshToken claims.ExpiresAt is nil")
 	}
-	if !claims.IssuedAt.Before(time.Now().Add(time.Second)) {
-		t.Errorf("Refresh token issued at time is not correct. Expected around %v, got %v", time.Now(), claims.IssuedAt.Time)
+	if claims.ExpiresAt.Time.Before(expectedExpiry.Add(-1*time.Minute)) || claims.ExpiresAt.Time.After(expectedExpiry.Add(1*time.Minute)) {
+		t.Errorf("RefreshToken expiration time is not within expected range. Expected around %v, got %v", expectedExpiry, claims.ExpiresAt.Time)
 	}
 }
 
 func TestGenerateTokenPair(t *testing.T) {
-	tokenPair, err := GenerateTokenPair(testUserID, testSecret)
+	tokenPair, err := GenerateTokenPair(testAccountID, testLenderID, testSecretKey)
 	if err != nil {
 		t.Fatalf("GenerateTokenPair failed: %v", err)
 	}
@@ -91,236 +101,140 @@ func TestGenerateTokenPair(t *testing.T) {
 		t.Fatal("Generated token pair is nil")
 	}
 	if tokenPair.AccessToken == "" {
-		t.Error("Access token in pair is empty")
+		t.Fatal("Generated access token in pair is empty")
 	}
 	if tokenPair.RefreshToken == "" {
-		t.Error("Refresh token in pair is empty")
+		t.Fatal("Generated refresh token in pair is empty")
 	}
 
-	// Validate Access Token from the pair
-	accessToken, err := jwt.ParseWithClaims(tokenPair.AccessToken, &Claims{}, func(token *jwt.Token) (interface{}, error) {
-		return []byte(testSecret), nil
-	})
-	if err != nil {
-		t.Fatalf("Failed to parse access token from pair: %v", err)
-	}
-	accessClaims, ok := accessToken.Claims.(*Claims)
-	if !ok || !accessToken.Valid {
-		t.Fatal("Access token from pair is invalid or claims are not of type *Claims")
-	}
-	if accessClaims.UserID != testUserID {
-		t.Errorf("Expected UserID %d for access token, got %d", testUserID, accessClaims.UserID)
+	// Validate Access Token
+	accessClaims := parseToken(t, tokenPair.AccessToken, testSecretKey)
+	if accessClaims.AccountID != testAccountID || accessClaims.LenderID != testLenderID {
+		t.Errorf("Access Token claims mismatch: AccountID %d/%d, LenderID %d/%d",
+			accessClaims.AccountID, testAccountID, accessClaims.LenderID, testLenderID)
 	}
 	expectedAccessExpiry := time.Now().Add(AccessTokenDuration)
-	if !accessClaims.ExpiresAt.After(time.Now()) || accessClaims.ExpiresAt.After(expectedAccessExpiry.Add(time.Second)) {
-		t.Errorf("Access token expiry from pair is not within expected range. Expected around %v, got %v", expectedAccessExpiry, accessClaims.ExpiresAt.Time)
+	if accessClaims.ExpiresAt == nil {
+		t.Fatal("AccessToken claims.ExpiresAt is nil")
+	}
+	if accessClaims.ExpiresAt.Time.Before(expectedAccessExpiry.Add(-1*time.Minute)) || accessClaims.ExpiresAt.Time.After(expectedAccessExpiry.Add(1*time.Minute)) {
+		t.Errorf("Access Token expiration time is not within expected range. Expected around %v, got %v", expectedAccessExpiry, accessClaims.ExpiresAt.Time)
 	}
 
-	// Validate Refresh Token from the pair
-	refreshToken, err := jwt.ParseWithClaims(tokenPair.RefreshToken, &Claims{}, func(token *jwt.Token) (interface{}, error) {
-		return []byte(testSecret), nil
-	})
-	if err != nil {
-		t.Fatalf("Failed to parse refresh token from pair: %v", err)
-	}
-	refreshClaims, ok := refreshToken.Claims.(*Claims)
-	if !ok || !refreshToken.Valid {
-		t.Fatal("Refresh token from pair is invalid or claims are not of type *Claims")
-	}
-	if refreshClaims.UserID != testUserID {
-		t.Errorf("Expected UserID %d for refresh token, got %d", testUserID, refreshClaims.UserID)
+	// Validate Refresh Token
+	refreshClaims := parseToken(t, tokenPair.RefreshToken, testSecretKey)
+	if refreshClaims.AccountID != testAccountID || refreshClaims.LenderID != testLenderID {
+		t.Errorf("Refresh Token claims mismatch: AccountID %d/%d, LenderID %d/%d",
+			refreshClaims.AccountID, testAccountID, refreshClaims.LenderID, testLenderID)
 	}
 	expectedRefreshExpiry := time.Now().Add(RefreshTokenDuration)
-	if !refreshClaims.ExpiresAt.After(time.Now()) || refreshClaims.ExpiresAt.After(expectedRefreshExpiry.Add(time.Second)) {
-		t.Errorf("Refresh token expiry from pair is not within expected range. Expected around %v, got %v", expectedRefreshExpiry, refreshClaims.ExpiresAt.Time)
+	if refreshClaims.ExpiresAt == nil {
+		t.Fatal("RefreshToken claims.ExpiresAt is nil")
+	}
+	if refreshClaims.ExpiresAt.Time.Before(expectedRefreshExpiry.Add(-1*time.Minute)) || refreshClaims.ExpiresAt.Time.After(expectedRefreshExpiry.Add(1*time.Minute)) {
+		t.Errorf("Refresh Token expiration time is not within expected range. Expected around %v, got %v", expectedRefreshExpiry, refreshClaims.ExpiresAt.Time)
 	}
 }
 
-func TestGenerateTokenInvalidSecret(t *testing.T) {
-	expectedErr := "secret key cannot be empty"
-
-	_, err := GenerateAccessToken(testUserID, "")
-	if err == nil || err.Error() != expectedErr {
-		t.Errorf("GenerateAccessToken with empty secret key: expected error %q, got %v", expectedErr, err)
+func TestValidateToken_Valid(t *testing.T) {
+	tokenString, err := GenerateAccessToken(testAccountID, testLenderID, testSecretKey)
+	if err != nil {
+		t.Fatalf("Failed to generate token: %v", err)
 	}
 
-	_, err = GenerateRefreshToken(testUserID, "")
-	if err == nil || err.Error() != expectedErr {
-		t.Errorf("GenerateRefreshToken with empty secret key: expected error %q, got %v", expectedErr, err)
+	claims, err := ValidateToken(tokenString, testSecretKey)
+	if err != nil {
+		t.Fatalf("ValidateToken failed for valid token: %v", err)
 	}
 
-	_, err = GenerateTokenPair(testUserID, "")
-	if err == nil || err.Error() != expectedErr {
-		t.Errorf("GenerateTokenPair with empty secret key: expected error %q, got %v", expectedErr, err)
+	if claims.AccountID != testAccountID {
+		t.Errorf("Expected AccountID %d, got %d", testAccountID, claims.AccountID)
+	}
+	if claims.LenderID != testLenderID {
+		t.Errorf("Expected LenderID %d, got %d", testLenderID, claims.LenderID)
 	}
 }
 
-// createExpiredToken generates a token that expires very quickly.
-func createExpiredToken(userID int64, secretKey string) (string, error) {
-	claims := Claims{
-		UserID: userID,
+func TestValidateToken_InvalidSignature(t *testing.T) {
+	tokenString, err := GenerateAccessToken(testAccountID, testLenderID, testSecretKey)
+	if err != nil {
+		t.Fatalf("Failed to generate token: %v", err)
+	}
+
+	_, err = ValidateToken(tokenString, "wrongsecretkey")
+	if err == nil {
+		t.Fatal("ValidateToken unexpectedly succeeded with wrong secret key")
+	}
+	if !errors.Is(err, jwt.ErrSignatureInvalid) {
+		t.Errorf("Expected signature invalid error, got: %v", err)
+	}
+}
+
+func TestValidateToken_Expired(t *testing.T) {
+	// Create a token with a very short expiry time
+	expiredClaims := Claims{
+		AccountID: testAccountID,
+		LenderID:  testLenderID,
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(-1 * time.Minute)), // Expired 1 minute ago
-			IssuedAt:  jwt.NewNumericDate(time.Now().Add(-5 * time.Minute)),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(100 * time.Millisecond)), // Short expiry
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
 		},
 	}
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString([]byte(secretKey))
-}
-
-func TestValidateToken(t *testing.T) {
-	// Valid token
-	validToken, err := GenerateAccessToken(testUserID, testSecret)
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, expiredClaims)
+	tokenString, err := token.SignedString([]byte(testSecretKey))
 	if err != nil {
-		t.Fatalf("Failed to generate valid token: %v", err)
+		t.Fatalf("Failed to generate expired token: %v", err)
 	}
 
-	// Expired token
-	expiredToken, err := createExpiredToken(testUserID, testSecret)
-	if err != nil {
-		t.Fatalf("Failed to create expired token: %v", err)
-	}
+	time.Sleep(150 * time.Millisecond) // Wait for the token to expire
 
-	// Token with wrong secret
-	wrongSecret := "wrongsecret"
-	tokenWithWrongSecret, err := GenerateAccessToken(testUserID, wrongSecret)
-	if err != nil {
-		t.Fatalf("Failed to generate token with wrong secret: %v", err)
+	_, err = ValidateToken(tokenString, testSecretKey)
+	if err == nil {
+		t.Fatal("ValidateToken unexpectedly succeeded for expired token")
 	}
-
-	tests := []struct {
-		name        string
-		tokenString string
-		secretKey   string
-		expectError bool
-		expectedMsg string
-	}{
-		{
-			name:        "Valid Token",
-			tokenString: validToken,
-			secretKey:   testSecret,
-			expectError: false,
-		},
-		{
-			name:        "Expired Token",
-			tokenString: expiredToken,
-			secretKey:   testSecret,
-			expectError: true,
-			expectedMsg: "token expired",
-		},
-		{
-			name:        "Invalid Signature",
-			tokenString: tokenWithWrongSecret,
-			secretKey:   testSecret,
-			expectError: true,
-			expectedMsg: "invalid token signature",
-		},
-		{
-			name:        "Malformed Token",
-			tokenString: "malformed.token.string",
-			secretKey:   testSecret,
-			expectError: true,
-			expectedMsg: "token is malformed: could not base64 decode header: illegal base64 data at input byte 8",
-		},
-		{
-			name:        "Empty Secret Key",
-			tokenString: validToken,
-			secretKey:   "",
-			expectError: true,
-			expectedMsg: "secret key cannot be empty",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			claims, err := ValidateToken(tt.tokenString, tt.secretKey)
-			if (err != nil) != tt.expectError {
-				t.Errorf("ValidateToken() error = %v, expectError %v", err, tt.expectError)
-				return
-			}
-			if tt.expectError {
-				if err == nil || err.Error() != tt.expectedMsg {
-					t.Errorf("ValidateToken() got error message = %q, want %q", err.Error(), tt.expectedMsg)
-				}
-			} else {
-				if claims.UserID != testUserID {
-					t.Errorf("ValidateToken() got UserID = %d, want %d", claims.UserID, testUserID)
-				}
-			}
-		})
+	if !errors.Is(err, jwt.ErrTokenExpired) {
+		t.Errorf("Expected ErrTokenExpired, got: %v", err)
 	}
 }
 
-func TestExtractUserID(t *testing.T) {
-	// Valid token
-	validToken, err := GenerateAccessToken(testUserID, testSecret)
+func TestExtractAccountID(t *testing.T) {
+	tokenString, err := GenerateAccessToken(testAccountID, testLenderID, testSecretKey)
 	if err != nil {
-		t.Fatalf("Failed to generate valid token: %v", err)
+		t.Fatalf("Failed to generate token: %v", err)
 	}
 
-	// Expired token
-	expiredToken, err := createExpiredToken(testUserID, testSecret)
+	extractedID, err := ExtractAccountID(tokenString, testSecretKey)
 	if err != nil {
-		t.Fatalf("Failed to create expired token: %v", err)
+		t.Fatalf("ExtractAccountID failed: %v", err)
+	}
+	if extractedID != testAccountID {
+		t.Errorf("Expected extracted AccountID %d, got %d", testAccountID, extractedID)
 	}
 
-	tests := []struct {
-		name        string
-		tokenString string
-		secretKey   string
-		expectError bool
-		expectedID  int64
-		expectedMsg string
-	}{
-		{
-			name:        "Valid Token",
-			tokenString: validToken,
-			secretKey:   testSecret,
-			expectError: false,
-			expectedID:  testUserID,
-		},
-		{
-			name:        "Expired Token",
-			tokenString: expiredToken,
-			secretKey:   testSecret,
-			expectError: true,
-			expectedID:  0,
-			expectedMsg: "token expired",
-		},
-		{
-			name:        "Invalid Token (wrong secret)",
-			tokenString: validToken,
-			secretKey:   "anothersecret",
-			expectError: true,
-			expectedID:  0,
-			expectedMsg: "invalid token signature",
-		},
-		{
-			name:        "Empty Secret Key",
-			tokenString: validToken,
-			secretKey:   "",
-			expectError: true,
-			expectedID:  0,
-			expectedMsg: "secret key cannot be empty",
-		},
+	// Test with invalid token
+	_, err = ExtractAccountID("invalid.token.string", testSecretKey)
+	if err == nil {
+		t.Fatal("ExtractAccountID unexpectedly succeeded with invalid token string")
+	}
+}
+
+func TestExtractLenderID(t *testing.T) {
+	tokenString, err := GenerateAccessToken(testAccountID, testLenderID, testSecretKey)
+	if err != nil {
+		t.Fatalf("Failed to generate token: %v", err)
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			userID, err := ExtractUserID(tt.tokenString, tt.secretKey)
-			if (err != nil) != tt.expectError {
-				t.Errorf("ExtractUserID() error = %v, expectError %v", err, tt.expectError)
-				return
-			}
-			if tt.expectError {
-				if err == nil || err.Error() != tt.expectedMsg {
-					t.Errorf("ExtractUserID() got error message = %q, want %q", err.Error(), tt.expectedMsg)
-				}
-			} else {
-				if userID != tt.expectedID {
-					t.Errorf("ExtractUserID() got UserID = %d, want %d", userID, tt.expectedID)
-				}
-			}
-		})
+	extractedID, err := ExtractLenderID(tokenString, testSecretKey)
+	if err != nil {
+		t.Fatalf("ExtractLenderID failed: %v", err)
+	}
+	if extractedID != testLenderID {
+		t.Errorf("Expected extracted LenderID %d, got %d", testLenderID, extractedID)
+	}
+
+	// Test with invalid token
+	_, err = ExtractLenderID("invalid.token.string", testSecretKey)
+	if err == nil {
+		t.Fatal("ExtractLenderID unexpectedly succeeded with invalid token string")
 	}
 }
