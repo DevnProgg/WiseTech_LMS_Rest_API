@@ -29,45 +29,45 @@ func TestCheckPassword(t *testing.T) {
 	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 
 	tests := []struct {
-		name         string
-		hashedPass   string
-		plainPass    string
-		expectError  bool
+		name           string
+		hashedPass     string
+		plainPass      string
+		expectError    bool
 		expectedBcrypt bool // true if bcrypt.CompareHashAndPassword is expected to return nil
 	}{
 		{
-			name:         "Correct password",
-			hashedPass:   string(hashedPassword),
-			plainPass:    password,
-			expectError:  false,
+			name:           "Correct password",
+			hashedPass:     string(hashedPassword),
+			plainPass:      password,
+			expectError:    false,
 			expectedBcrypt: true,
 		},
 		{
-			name:         "Incorrect password",
-			hashedPass:   string(hashedPassword),
-			plainPass:    "WrongPassword123",
-			expectError:  true,
+			name:           "Incorrect password",
+			hashedPass:     string(hashedPassword),
+			plainPass:      "WrongPassword123",
+			expectError:    true,
 			expectedBcrypt: false,
 		},
 		{
-			name:         "Empty plain password",
-			hashedPass:   string(hashedPassword),
-			plainPass:    "",
-			expectError:  true,
+			name:           "Empty plain password",
+			hashedPass:     string(hashedPassword),
+			plainPass:      "",
+			expectError:    true,
 			expectedBcrypt: false,
 		},
 		{
-			name:         "Empty hashed password",
-			hashedPass:   "",
-			plainPass:    password,
-			expectError:  true,
+			name:           "Empty hashed password",
+			hashedPass:     "",
+			plainPass:      password,
+			expectError:    true,
 			expectedBcrypt: false,
 		},
 		{
-			name:         "Invalid hashed password format",
-			hashedPass:   "invalidhash",
-			plainPass:    password,
-			expectError:  true,
+			name:           "Invalid hashed password format",
+			hashedPass:     "invalidhash",
+			plainPass:      password,
+			expectError:    true,
 			expectedBcrypt: false,
 		},
 	}

@@ -11,6 +11,8 @@ The project follows the standard Go project layout:
   - `config/`: Configuration loading and management.
   - `database/`: PostgreSQL database connection setup.
   - `models/`: Database model structs.
+  - `repository/`: Contains data access logic and interfaces for interacting with the database.
+    - `auth_repository.go`: Provides methods for authentication-related database operations, including creating lender accounts, retrieving account/lender details, and updating login timestamps.
   - `server/`: HTTP server and routing.
   - `utils/`: Utility functions, including password hashing and validation.
   - `auth/`: Authentication utilities, including JWT token generation and validation.

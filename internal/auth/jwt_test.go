@@ -59,7 +59,7 @@ func TestGenerateAccessToken(t *testing.T) {
 	if claims.ExpiresAt == nil {
 		t.Fatal("AccessToken claims.ExpiresAt is nil")
 	}
-	if claims.ExpiresAt.Time.Before(expectedExpiry.Add(-1 * time.Minute)) || claims.ExpiresAt.Time.After(expectedExpiry.Add(1 * time.Minute)) {
+	if claims.ExpiresAt.Time.Before(expectedExpiry.Add(-1*time.Minute)) || claims.ExpiresAt.Time.After(expectedExpiry.Add(1*time.Minute)) {
 		t.Errorf("AccessToken expiration time is not within expected range. Expected around %v, got %v", expectedExpiry, claims.ExpiresAt.Time)
 	}
 }

@@ -2,7 +2,7 @@ package main
 
 import (
 	"log"
-	
+
 	"wisetech-lms-api/internal/config"
 	"wisetech-lms-api/internal/database"
 	"wisetech-lms-api/internal/server"

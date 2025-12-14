@@ -11,7 +11,7 @@ import (
 	"wisetech-lms-api/internal/config"
 )
 
-const sqliteSchema = `
+const SqliteSchema = `
 -- Lenders Table
 CREATE TABLE IF NOT EXISTS Lenders (
     Lender_ID INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -204,7 +204,7 @@ func NewConnection(cfg *config.Config) (*sql.DB, error) {
 
 // InitializeSchema creates the database schema if it doesn't exist
 func InitializeSchema(db *sql.DB) error {
-	_, err := db.Exec(sqliteSchema)
+	_, err := db.Exec(SqliteSchema)
 	if err != nil {
 		return fmt.Errorf("failed to initialize schema: %w", err)
 	}

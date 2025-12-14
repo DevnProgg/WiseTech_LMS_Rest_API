@@ -26,7 +26,7 @@ func New(db *sql.DB, cfg *config.Config) *Server {
 
 // Start runs the HTTP server
 func (s *Server) Start() error {
-outer := s.NewRouter()
+	outer := s.NewRouter()
 
 	httpServer := &http.Server{
 		Addr:         ":" + strconv.Itoa(s.Cfg.ServerPort),
@@ -38,4 +38,3 @@ func (s *Server) Start() error {
 	fmt.Printf("Server listening on port %d\n", s.Cfg.ServerPort)
 	return httpServer.ListenAndServe()
 }
-
