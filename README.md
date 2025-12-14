@@ -12,6 +12,7 @@ The project follows the standard Go project layout:
   - `database/`: PostgreSQL database connection setup.
   - `models/`: Database model structs.
   - `server/`: HTTP server and routing.
+  - `utils/`: Utility functions, including password hashing and validation.
 - `pkg/`: (currently unused) Publicly-usable library code.
 
 ## Prerequisites
@@ -43,7 +44,7 @@ The project follows the standard Go project layout:
       ```
 
 3.  **Install dependencies:**
-    - The project uses Go modules. The dependencies will be downloaded automatically when you build or run the application. You can also install them manually:
+    - The project uses Go modules. Dependencies like `golang.org/x/crypto/bcrypt` are automatically downloaded when you build or run the application. You can also install them manually:
       ```sh
       go mod tidy
       ```
